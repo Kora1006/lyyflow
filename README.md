@@ -37,7 +37,7 @@
 ## 安装
 
 ```bash
-claude plugin marketplace add <你的GitHub用户名>/lyyflow
+claude plugin marketplace add Kora1006/lyyflow
 claude plugin install lyyflow@lyyflow
 ```
 
