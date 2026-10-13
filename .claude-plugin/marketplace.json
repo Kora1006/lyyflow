@@ -1,0 +1,12 @@
+{
+  "name": "lyyflow",
+  "description": "lyyflow 多端全链路开发工作流:PRD 拆分 → Specs 技术方案 → 实现 → Review → 归档",
+  "owner": { "name": "lyyflow" },
+  "plugins": [
+    {
+      "name": "lyyflow",
+      "source": "./",
+      "description": "多端全链路开发工作流:PRD 拆分 → Specs → 实现 → Review → 归档"
+    }
+  ]
+}
