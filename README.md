@@ -6,8 +6,9 @@
 
 ## 它解决什么问题
 
-- **PRD 直接开工容易跑偏**：先拆成粒度合适、可独立验收的 spec（`specs/spec-NNN-*.md`），`specs/overview.md` 作为状态看板中枢
+- **PRD 直接开工容易跑偏**：先拆成粒度合适、可独立验收的 spec（`specs/spec-NNN-*.md`），`specs/overview.md` 作为状态看板中枢；拆分时产出**假设清单**（歧义点 + 默认假设，批量确认），把「需求待确认」返工消灭在开工前
 - **多端改动没人统一管**：每端各自有 `CLAUDE-RULE.md` 项目规范，Execute/Review 按端派 subagent，在对应仓库各自实现/审查
+- **项目原则没人强制**：每端 `CLAUDE-RULE.md` 顶部有「项目章程（Constitution）」——specs 阶段方案逐条对照，review 阶段**违反章程 = P0** 当场修复
 - **同一类坑反复踩**：每个 spec 完成后把教训沉淀到 `.lyyflow-local/lessons-learned.md`（本地私有，不入 git），后续 agent 开工前自动加载
 - **审一半没人管 P0**：review 报 P0 当场派修复 agent 只修 P0，修完复跑 review 验证；修不掉的冒泡给人工
 - **中途断了从头再来**：靠 overview.md 的 `[x]` 标记 + 状态机做断点续跑，重跑只处理未完成的 spec
@@ -15,13 +16,13 @@
 ## 流程总览
 
 ```
-/lyyflow:prd      读需求来源(文件/URL/PDF/文本)拆功能点 spec
+/lyyflow:prd      读需求来源(文件/URL/PDF/文本)拆功能点 spec + 生成假设清单(歧义点批量确认)
    ↓
-/lyyflow:specs    每个 spec 定位代码、分析改动点、写可落地技术方案
+/lyyflow:specs    每个 spec 定位代码、对照项目章程(Constitution)、分析改动点、写可落地技术方案
    ↓
 /lyyflow:ai       按技术方案实现代码,自检 lint/test/验收标准
    ↓
-/lyyflow:review   3 层路由审核(见下),P0 当场修复
+/lyyflow:review   3 层路由审核(见下),违反章程=P0,P0 当场修复
    ↓
 /lyyflow:archive  全部完成后归档到 ~/lyyflow-archives(可配)
 ```
@@ -33,6 +34,22 @@
 | core | 鉴权/支付/契约/并发等高风险 | Codex review + adversarial review |
 | standard | 普通功能改动 | 仅 Codex review |
 | trivial | 纯重构/typo/样式 | Jev(TypeSafe System One)轻校验,不耗 Codex 配额;触发升级条件自动转 standard |
+
+## 项目章程（Constitution）
+
+每端 `CLAUDE-RULE.md` 的第一章节固定为「## 项目章程」：≤10 条不可违反的项目原则（如「API 变更必须向后兼容」「禁止移除既有埋点」），由 `/lyyflow:prd` 首次生成模板、维护者审阅修订。
+
+- **specs 阶段**：方案出口处逐条对照章程；能调整方案规避的冲突直接调整，无法规避（需求本身要求违反章程）→ 状态切「需求待确认」冒泡人工裁决
+- **review 阶段**：逐条对照改动，**违反任意一条 = P0**，当场派修复 agent 修复并复跑验证；workflow 的 Collect 返回 `constitutionViolations` 统计
+- **Tier C 注意**：Jev 结构化校验不覆盖章程，trivial 层由会话模型人工核对章程
+
+## 假设清单（前置澄清）
+
+`/lyyflow:prd` 拆分时强制把需求歧义点列成假设清单（每条 = 具体问题 + 默认假设 + 影响 spec），写入 `specs/overview.md`「假设清单」章节：
+
+- **交互模式**（`/lyyflow:prd`）：一次性批量向用户确认（回复「全部确认」或逐条修改），确认后 `[ ]`→`[x]`
+- **无人值守模式**（workflow）：未确认假设以 `[assumption]` 前缀冒泡到返回值；Specs 按默认假设出方案并在「风险与影响」标注「假设 A-NN 未确认」
+- **消除方式**：在 overview.md 假设清单把对应条目标 `[x]`（或修正默认假设）后重跑即消
 
 ## 安装
 

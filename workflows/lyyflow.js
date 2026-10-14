@@ -5,14 +5,18 @@
 // 对应 lyyflow 命令行的五个 skill:/lyyflow:prd → /lyyflow:specs → /lyyflow:ai → /lyyflow:review → /lyyflow:archive。
 //
 //   PRD    : 读需求来源(文件/URL/PDF/文本)→ 拆功能点 spec,生成 specs/overview.md + spec-NNN-*.md +
-//            lessons-learned.md;为涉及的每端增量补 CLAUDE-RULE.md;接口文档前置询问(可交互缺口)。
+//            lessons-learned.md;为涉及的每端增量补 CLAUDE-RULE.md(顶部含「项目章程」段);
+//            生成「假设清单」(需求歧义点+默认假设)写入 overview.md —— 沙箱无法交互,
+//            未确认假设以 [assumption] 前缀冒泡,Specs 按默认假设出方案并标风险。
 //            断点续跑:overview.md 里已标 [x] 的 spec 整段跳过。
-//   Specs  : 对每个「待方案」spec 定位代码、分析改动点、给可落地技术方案,写进 spec 文件;
-//            异常流转(方案待修正/需求待确认/技术不可行)写备注 + 状态机切换,不擅自改需求。
+//   Specs  : 对每个「待方案」spec 定位代码、分析改动点、对照各端 CLAUDE-RULE.md「项目章程」
+//            逐条校验方案(constitutionViolations),给可落地技术方案,写进 spec 文件;
+//            异常流转(方案待修正/需求待确认/技术不可行/章程冲突)写备注 + 状态机切换,不擅自改需求。
 //   Execute: 按 spec 技术方案在对应端实现代码,Schema 强约束返回;自检 lint/test/验收标准;
 //            踩坑沉淀进 lessons-learned.md;状态→待 review。
 //   Review : 每 spec 完成后派 review agent(走 codex-plugin-cc 的 /codex:review +
-//            /codex:adversarial-review 交叉审查);报 P0 → 另派修复 agent 当场只修 P0(职责分离),
+//            /codex:adversarial-review 交叉审查);**违反项目章程 = P0**(constitutionViolations
+//            单独返回并写进 p0Issues);报 P0 → 另派修复 agent 当场只修 P0(职责分离),
 //            修复后复跑 review 验证;非 P0 / 修不掉的 P0 → Blocker 分类冒泡。
 //            无人值守:不等审批,有阻塞冒泡到返回值。
 //   Archive: 所有 spec「已完成」且审核通过 → 归档到 args.archiveRoot(默认 ~/lyyflow-archives)/<命名>/,spec 中文重命名,
@@ -66,12 +70,12 @@ export const meta = {
     {
       title: 'PRD',
       detail:
-        '读需求来源拆 spec,生成 specs/overview.md + spec-NNN-*.md + lessons-learned.md,每端增量补 CLAUDE-RULE.md,接口文档+埋点文档缺口冒泡',
+        '读需求来源拆 spec,生成 specs/overview.md(含假设清单)+ spec-NNN-*.md + lessons-learned.md,每端增量补 CLAUDE-RULE.md(顶部「项目章程」段),接口/埋点缺口 + 未确认假设冒泡',
     },
     {
       title: 'Specs',
       detail:
-        '每个待方案 spec 定位代码、分析改动点、写可落地技术方案(可填「### 审核策略」强制 review tier);异常流转切状态机',
+        '每个待方案 spec 定位代码、分析改动点、对照 CLAUDE-RULE.md「项目章程」校验方案(constitutionViolations),写可落地技术方案(可填「### 审核策略」强制 review tier);异常流转切状态机',
     },
     {
       title: 'Execute',
@@ -80,10 +84,10 @@ export const meta = {
     {
       title: 'Review',
       detail:
-        'Step 0 路由(spec 审核策略或 Jev Choice 判 tier)→ 按 tier 跑 codex-plugin-cc 的 /codex:review(+adversarial 或不)+ 必要时调 Jev(TypeSafe System One)Noul/Score 轻校验。trivial 触发升级自动转 standard。P0 当场派修复 agent 只修 P0 并复跑验证;非 P0 / 修不掉的 P0 冒泡;通过则标 [x]',
+        'Step 0 路由(spec 审核策略或 Jev Choice 判 tier)→ 按 tier 跑 codex-plugin-cc 的 /codex:review(+adversarial 或不)+ 必要时调 Jev(TypeSafe System One)Noul/Score 轻校验。trivial 触发升级自动转 standard。违反项目章程=P0(constitutionViolations);P0 当场派修复 agent 只修 P0 并复跑验证;非 P0 / 修不掉的 P0 冒泡;通过则标 [x]',
     },
     { title: 'Archive', detail: '全部 spec 已完成且审核通过 → 归档到 args.archiveRoot(默认 ~/lyyflow-archives;严格排除 .lyyflow-local/)' },
-    { title: 'Collect', detail: '汇总产出 + blocker 分类冒泡(含 review tier 分布 / 升级次数 / 降级次数)' },
+    { title: 'Collect', detail: '汇总产出 + blocker 分类冒泡(含 review tier 分布 / 升级次数 / 降级次数 / 章程违反数)' },
   ],
 };
 
@@ -278,16 +282,23 @@ log(
 const SPECS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['specId', 'wrotePlan', 'status', 'blockers'],
+  required: ['specId', 'wrotePlan', 'status', 'constitutionViolations', 'blockers'],
   properties: {
     specId: { type: 'string' },
     wrotePlan: { type: 'boolean', description: '是否成功写入「## 技术方案」章节' },
     status: { type: 'string', description: '切到的新状态(正常→待实现;异常→方案待修正/需求待确认)' },
     ends: { type: 'array', items: { type: 'string' }, description: '本 spec 实际涉及的端(回填)' },
+    constitutionViolations: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        '方案与各端 CLAUDE-RULE.md「## 项目章程」条款冲突点,格式 "[constitution] <章程条款>: <方案哪里冲突>";已通过调整方案规避的冲突不写;无冲突则空数组',
+    },
     blockers: {
       type: 'array',
       items: { type: 'string' },
-      description: '需人工确认(需求待确认/技术不可行/缺接口契约);无则空数组',
+      description:
+        '需人工确认(需求待确认/技术不可行/缺接口契约/章程冲突无法规避);无则空数组',
     },
     note: { type: 'string' },
   },
@@ -300,25 +311,28 @@ function runSpecs(s) {
 目标 spec: ${s.id}(${s.name})
 
 严格按 /lyyflow:specs 流程:
-1. 读 ${specsDir}/${s.id}*.md(需求、验收标准)和 ${specsDir}/overview.md(整体依赖)。
-2. 对本 spec 涉及的每个端/项目:确认项目根、若缺 CLAUDE-RULE.md 则增量生成(内容:项目结构/技术栈/目录命名约定/公共组件/接口请求/状态管理/规范约束,末尾同时引用 ${lessonsLocalPath}(本地教训主版本,优先读)与 ${specsDir}/lessons-learned.md(公开快照,作为兜底)以便后续 agent 开工前能自动加载);已存在则先通读。
-3. 用 Glob/Grep 在各端定位相关模块/组件/页面/接口/数据模型/路由/状态。
-4. 分析改动点:改/新增哪些文件、接口是否已存在或需新增、数据流/状态/路由变化、多端共享逻辑是否统一。
-5. 给可落地技术方案:选型取舍(多方案给推荐+理由)、关键实现思路、对现有功能影响/回归风险、需其他端配合事项。明确标注「不在范围内」。
-6. 在 spec 文件追加「## 技术方案」章节(用改动点清单表 + 方案 + 接口契约 + 风险与影响 模板),状态改「待实现」。
-7. 同步 ${specsDir}/overview.md 状态看板与「当前进度」。
+1. 读 ${specsDir}/${s.id}*.md(需求、验收标准)和 ${specsDir}/overview.md(整体依赖 + 假设清单)。
+2. 对本 spec 涉及的每个端/项目:确认项目根、若缺 CLAUDE-RULE.md 则增量生成(第一章节必须是「## 项目章程」:≤10 条不可违反原则,含常见默认条目如「API 变更必须向后兼容」「禁止破坏既有埋点」并标注待用户补充;后续章节:项目结构/技术栈/目录命名约定/公共组件/接口请求/状态管理/规范约束,末尾同时引用 ${lessonsLocalPath}(本地教训主版本,优先读)与 ${specsDir}/lessons-learned.md(公开快照,作为兜底)以便后续 agent 开工前能自动加载);已存在则先通读。
+3. **章程对照(必须)**:逐条读各端 CLAUDE-RULE.md 的「## 项目章程」,把方案与章程条款对照。能调整方案规避的冲突 → 直接调整,不算 violation;无法规避(需求本身要求违反章程)→ 写进 constitutionViolations,在 spec「备注」记录冲突条款与理由,状态→需求待确认,并写进 blockers("[constitution] 章程 <条款> 与需求冲突,需人工裁决")。
+4. **假设清单(必须)**:读 overview.md「假设清单」章节。涉及本 spec 的已确认([x])假设按事实处理;未确认假设按其默认假设出方案,并在「风险与影响」标注「假设 A-NN 未确认,默认按 <假设>,确认后可能需调整」。
+5. 用 Glob/Grep 在各端定位相关模块/组件/页面/接口/数据模型/路由/状态。
+6. 分析改动点:改/新增哪些文件、接口是否已存在或需新增、数据流/状态/路由变化、多端共享逻辑是否统一。
+7. 给可落地技术方案:选型取舍(多方案给推荐+理由)、关键实现思路、对现有功能影响/回归风险、需其他端配合事项。明确标注「不在范围内」。
+8. 在 spec 文件追加「## 技术方案」章节(用改动点清单表 + 方案 + 接口契约 + 章程对照结论 + 风险与影响 模板),状态改「待实现」。
+9. 同步 ${specsDir}/overview.md 状态看板与「当前进度」。
 
 异常流转:
 - 方案待修正:先读 spec 的实现记录/审核结论,更新方案,状态→待实现,清旧实现记录。
 - 发现需求问题:在 spec「备注」记录,状态→需求待确认,写进 blockers(冒泡给人工)。
 - 技术不可行:在「备注」记录原因+替代建议,状态→需求待确认,写进 blockers。
+- 章程冲突无法规避:见步骤 3,写 constitutionViolations + blockers。
 
 接口契约缺口:若 ${specsDir}/api-contracts.md 不存在或本 spec 涉及接口未定义,不要擅自臆造接口 —— 先按合理假设出方案,在 spec「备注」标注「接口契约待补」风险,并写进 blockers(kind=external)。
 
 埋点定义缺口:若 ${specsDir}/tracking-events.md 不存在或本 spec 涉及埋点未定义,不要擅自臆造埋点编码 —— 先按合理假设出方案,在 spec「备注」标注「埋点定义待补」风险,并写进 blockers(kind=external)。
 
 开工前读 ${lessonsLocalPath}(主路径,本地教训)+ ${specsDir}/lessons-learned.md(公开快照,兜底),合并去重,作为项目已知坑避免重蹈。
-只做技术方案,不写实现代码。返回 {specId, wrotePlan, status, ends, blockers, note}。`,
+只做技术方案,不写实现代码。返回 {specId, wrotePlan, status, ends, constitutionViolations, blockers, note}。`,
     { label: `specs:${s.id}`, phase: 'Specs', schema: SPECS_SCHEMA },
   );
 }
@@ -410,7 +424,13 @@ const REVIEW_SCHEMA = {
       type: 'array',
       items: { type: 'string' },
       description:
-        '本轮实际跑的 review(codex 或 jev 升级到 codex)中明确标为 P0/Critical/「不修就不能交」的问题,原样抠出,具体到 文件:行 + 问题;无则空数组。会被当场派 agent 修复',
+        '本轮实际跑的 review(codex 或 jev 升级到 codex)中明确标为 P0/Critical/「不修就不能交」的问题 + 违反项目章程的问题,原样抠出,具体到 文件:行 + 问题;无则空数组。会被当场派 agent 修复',
+    },
+    constitutionViolations: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        '改动违反各端 CLAUDE-RULE.md「## 项目章程」条款的问题,格式 "[constitution] <章程条款>: <文件:行 违反点>";违反章程一律算 P0,必须同时写进 p0Issues;无则空数组',
     },
     summary: { type: 'string' },
     tier: {
@@ -443,6 +463,7 @@ function runReview(execResult, s) {
 spec 目录:${specsDir}
 
 先读 ${lessonsLocalPath}(主路径,本地教训)+ ${specsDir}/lessons-learned.md(公开快照,兜底),评审时核对有没有重蹈。
+再读本 spec 涉及的各端 CLAUDE-RULE.md 顶部「## 项目章程」(若该端缺章程段,视为无章程约束,不要臆造条款)——它是不可违反原则,**违反章程 = P0**。
 
 ## Step 0:路由判定(3 层 tier)
 
@@ -521,18 +542,18 @@ curl -s https://api.typesafe.ai/v1/systemone \\
 
 ## 评审维度(无论 tier)
 
-需求符合性、方案一致性、正确性(边界/空值/异步并发/接口契约/多端一致)、工程质量、风险(回归/兼容/性能/安全)、埋点完整性(key/pageId/触发时机/守卫判断)。
+需求符合性、方案一致性、正确性(边界/空值/异步并发/接口契约/多端一致)、工程质量、风险(回归/兼容/性能/安全)、埋点完整性(key/pageId/触发时机/守卫判断)、**章程符合性(逐条对照各端「## 项目章程」,无论 tier 都必须人工核对一遍——Tier C 的 Jev 结构化校验不覆盖章程)**。
 
 ## 无人值守与降级
 
 - 发现问题不等审批,verdict=fail 时写进 issues 冒泡。
-- 把本轮实际跑的 review(无论 tier)中明确标 P0/Critical/「不修就不能交」的问题,原样单独抠进 p0Issues;描述具体到 文件:行 + 问题本身。
+- 把本轮实际跑的 review(无论 tier)中明确标 P0/Critical/「不修就不能交」的问题,原样单独抠进 p0Issues;**违反项目章程的问题也一律写进 p0Issues(=P0)**。描述具体到 文件:行 + 问题本身。
 - 若 codex 插件不可用(降级或 standard/core 都涉及):verdict=fail、issues 写「codex-plugin-cc 未安装/未配置,需先 /codex:setup」、p0Issues 为空。
 - 若 Jev API 调用失败且 tier=trivial:已自动降级到 core(见上),tierFallback 记录原因。
 
 ## 返回
 
-{ specId, verdict, issues, p0Issues, summary, tier, tierSource, tierEscalated, tierFallback }。`,
+{ specId, verdict, issues, p0Issues, constitutionViolations, summary, tier, tierSource, tierEscalated, tierFallback }。`,
     { label: `review:${s.id}`, phase: 'Review', schema: REVIEW_SCHEMA },
   );
 }
@@ -559,9 +580,11 @@ function markSpecDone(s, reviewResult, fixResult) {
   const tierSource = (reviewResult && reviewResult.tierSource) || 'unknown';
   const tierEscalated = !!(reviewResult && reviewResult.tierEscalated);
   const tierFallback = (reviewResult && reviewResult.tierFallback) || '';
+  const constitutionHits = (reviewResult && reviewResult.constitutionViolations) || [];
   const tierTag = `[tier=${tier}, src=${tierSource}${tierEscalated ? ', escalated' : ''}${tierFallback ? `, fallback=${tierFallback}` : ''}]`;
   return agent(
     `把 spec ${s.id}(${s.name})标记为已完成。本轮 review tier=${tierTag}
+章程核对:本轮 constitutionViolations ${constitutionHits.length} 条${constitutionHits.length ? `(${constitutionHits.join('; ')})——已全部修复才允许标完成,把每条「违反→修复方式」写进审核结论` : '(无违反)'}`}
 1. 在 ${specsDir}/overview.md 的 spec 列表里:
    - 该 spec 的「完成标记」列 [ ]→[x],状态列→「已完成」
    - 若 tier=trivial 且 review tierSource=auto-jev → 在该行末尾追加 \`tier-c-jev-passed (${new Date().toISOString().slice(0,10)})\` 标记,便于审计追溯
@@ -728,17 +751,23 @@ phase('Collect');
 //   task:spec 开发自身 blocker(破坏性变更/业务歧义/PII/方案待修正/需求待确认/待联调)
 //   branch:分支错误(在非功能分支上开发/实现过程中分支被切走)
 //   review:review fail 的非 P0 问题
-//   p0-unfixed:修复 agent 修不掉、仍需人工的 P0
+//   p0-unfixed:修复 agent 修不掉、仍需人工的 P0(含违反项目章程修不掉的)
 //   external:外部依赖未就绪(接口契约缺失/设计稿缺失/codex 插件未装)
+//   assumption:PRD 假设清单中未经用户确认的假设([assumption] 前缀;用户在 overview.md
+//              「假设清单」把对应条目标 [x] 或修改默认假设后重跑即消)
 const fixById = {};
 for (const x of reviewed) if (x.fix) fixById[x.spec.id] = x.fix;
 
 const allBlockers = [
   // Bootstrap 段冒泡(.lyyflow-local/ 已被 git 跟踪等)
   ...((bootstrapReport && bootstrapReport.blockers) || []).map((b) => ({ specId: '-', kind: 'external', blocker: `[bootstrap] ${b}` })),
-  // PRD 段冒泡(主要是接口文档缺口 external)
-  ...((prdReport && prdReport.blockers) || []).map((b) => ({ specId: '-', kind: 'prd', blocker: b })),
-  // task blocker(含分支错误 [branch])
+  // PRD 段冒泡(接口/埋点文档缺口 external;未确认假设 → assumption)
+  ...((prdReport && prdReport.blockers) || []).map((b) => ({
+    specId: '-',
+    kind: /\[assumption\]|假设/.test(b) ? 'assumption' : 'prd',
+    blocker: b,
+  })),
+  // task blocker(含分支错误 [branch];章程冲突归 task,review 侧另有 constitutionViolations 统计)
   ...reviewed.flatMap((x) =>
     ((x.execute && x.execute.blockers) || []).map((b) => ({
       specId: x.spec.id,
@@ -746,7 +775,7 @@ const allBlockers = [
       blocker: b,
     })),
   ),
-  // specs 段 blocker(需求待确认/技术不可行 → 归 task;缺接口 → external)
+  // specs 段 blocker(需求待确认/技术不可行/章程冲突 → 归 task;缺接口 → external)
   ...reviewed.flatMap((x) =>
     ((x.specs && x.specs.blockers) || []).map((b) => ({
       specId: x.spec.id,
@@ -784,8 +813,15 @@ const tierCounts = reviewed.reduce((acc, x) => {
 }, {});
 const tierEscCount = reviewed.filter((x) => x.review && x.review.tierEscalated).length;
 const tierFbCount = reviewed.filter((x) => x.review && x.review.tierFallback).length;
+// 章程违反统计(方案阶段 + review 阶段,去重合并描述)
+const constitutionHits = reviewed.flatMap((x) => {
+  const fromSpecs = (x.specs && x.specs.constitutionViolations) || [];
+  const fromReview = (x.review && x.review.constitutionViolations) || [];
+  return [...new Set([...fromSpecs, ...fromReview])].map((v) => ({ specId: x.spec.id, violation: v }));
+});
+const assumptionBlockers = allBlockers.filter((b) => b.kind === 'assumption');
 log(
-  `【Collect】本轮处理 ${reviewed.length} 个 spec;已标 [x] 完成 ${markedCount} 个;沉淀教训 ${learnedCount} 个 → lessons-learned.md;review P0 命中 ${p0SeenCount} 个 spec、当场修复 ${p0FixedCount} 个;review 未过 ${failedReviews.length} 个;分支错误 ${branchBlockers.length} 个;冒泡 ${allBlockers.length} 个待人工确认的 blocker;review tier 分布 core=${tierCounts.core || 0}/standard=${tierCounts.standard || 0}/trivial=${tierCounts.trivial || 0}/unknown=${tierCounts.unknown || 0}(升级 ${tierEscCount} 个、降级 ${tierFbCount} 个)`,
+  `【Collect】本轮处理 ${reviewed.length} 个 spec;已标 [x] 完成 ${markedCount} 个;沉淀教训 ${learnedCount} 个 → lessons-learned.md;review P0 命中 ${p0SeenCount} 个 spec、当场修复 ${p0FixedCount} 个;review 未过 ${failedReviews.length} 个;分支错误 ${branchBlockers.length} 个;章程违反 ${constitutionHits.length} 条;未确认假设 ${assumptionBlockers.length} 条;冒泡 ${allBlockers.length} 个待人工确认的 blocker;review tier 分布 core=${tierCounts.core || 0}/standard=${tierCounts.standard || 0}/trivial=${tierCounts.trivial || 0}/unknown=${tierCounts.unknown || 0}(升级 ${tierEscCount} 个、降级 ${tierFbCount} 个)`,
 );
 
 return {
@@ -804,8 +840,9 @@ return {
     escalated: tierEscCount,
     fallbacks: tierFbCount,
   },
+  constitutionViolations: constitutionHits,
   blockers: allBlockers,
-  note: 'P0(review 命中)当场派 agent 修复并复跑验证;review tier 路由:trivial 由 Jev(TypeSafe System One)轻校验,standard 仅 Codex review,core Codex review + adversarial。trivial 触发升级条件自动转 standard。非 P0 / 标记完成 / QA / 审批 / 归档确认 由外层 command 与 Stop hook 门禁处理',
+  note: 'P0(review 命中 + 违反项目章程)当场派 agent 修复并复跑验证;review tier 路由:trivial 由 Jev(TypeSafe System One)轻校验,standard 仅 Codex review,core Codex review + adversarial。trivial 触发升级条件自动转 standard。未确认假设([assumption])在 overview.md「假设清单」确认后重跑即消。非 P0 / 标记完成 / QA / 审批 / 归档确认 由外层 command 与 Stop hook 门禁处理',
 };
 
 // ════════════════════════════════════════════════════════════
@@ -945,10 +982,28 @@ async function runPRD() {
       },
       hasApiContracts: { type: 'boolean', description: 'specs/api-contracts.md 是否已存在且完整' },
       hasTrackingEvents: { type: 'boolean', description: 'specs/tracking-events.md 是否已存在且完整' },
+      assumptions: {
+        type: 'array',
+        description:
+          '假设清单:需求中的歧义点/信息缺口/隐含决策点,每条给默认假设(前置澄清,减少事后需求待确认返工)',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['id', 'question', 'assumption', 'impact', 'confirmed'],
+          properties: {
+            id: { type: 'string', description: '假设编号,如 A-001' },
+            question: { type: 'string', description: '需求歧义点/缺口(要问什么)' },
+            assumption: { type: 'string', description: '默认采用的假设(确认前按此出方案)' },
+            impact: { type: 'string', description: '影响的 spec 编号(如 spec-001,spec-003)' },
+            confirmed: { type: 'boolean', description: '是否已确认(overview.md 假设清单里已标 [x] / 用户此前明确说过 = true)' },
+          },
+        },
+      },
       blockers: {
         type: 'array',
         items: { type: 'string' },
-        description: '缺口冒泡:缺接口文档 / 缺设计稿 / 需求歧义;无则空数组',
+        description:
+          '缺口冒泡:缺接口文档 / 缺设计稿 / 未确认假设(格式 "[assumption] A-NNN <歧义点>,默认按 <假设>,请确认或修改 overview.md 假设清单");无则空数组',
       },
       overviewExists: { type: 'boolean', description: 'specs/overview.md 是否已存在(断点续跑判据)' },
     },
@@ -969,14 +1024,16 @@ async function runPRD() {
 
 执行:
 1. 通读需求,提炼背景/目标/用户/业务场景。
-2. 识别涉及端(H5/小程序/App/后台/服务端),逐端列改动范围。
-3. 拆成多个 spec:单个可独立完成+独立验收,标【涉及端】【依赖】【验收标准(checkbox)】。
-4. 按依赖排并行组(无依赖/不同项目→并行;有依赖/改同文件/共享 schema→串行)。
-5. 接口文档:检查 ${specsDir}/api-contracts.md。workflow 沙箱无法交互询问用户 —— 若涉及新增接口而文档缺失,hasApiContracts=false 并在 blockers 写「[external] spec-XXX 涉及新增接口但 api-contracts.md 缺失,需人工补充接口定义」(每个缺口一条)。不要擅自臆造接口。
-6. 埋点文档:检查 ${specsDir}/tracking-events.md。若涉及新增埋点而文档缺失,hasTrackingEvents=false 并在 blockers 写「[external] spec-XXX 涉及新增埋点但 tracking-events.md 缺失,需人工补充埋点定义」(每个缺口一条)。不要擅自臆造埋点编码。
-7. lessons-learned.md:双路径处理 —— ${lessonsLocalPath}(主版本,本地私有,Source of Truth)由 Bootstrap 阶段创建并维护;${specsDir}/lessons-learned.md(公开快照,团队可见,默认同步主版本内容,由用户后续手动编辑决定哪些可发布)若不存在则创建(顶部 "# 项目踩坑与教训(公开快照,主版本在 .lyyflow-local/)" + 累计教训 0 条)。
+2. **假设清单(前置澄清,必须)**:把需求中所有歧义点/信息缺口/隐含决策点列成 assumptions —— 每条一个具体问题 + 一个可执行的默认假设 + 影响的 spec。宁可多列不要漏(漏一个歧义 = 后期一次「需求待确认」返工)。断点续跑时:overview.md「假设清单」里已标 [x] 的条目 confirmed=true,新增歧义补新条目。
+3. 识别涉及端(H5/小程序/App/后台/服务端),逐端列改动范围。
+4. 拆成多个 spec:单个可独立完成+独立验收,标【涉及端】【依赖】【验收标准(checkbox)】。
+5. 按依赖排并行组(无依赖/不同项目→并行;有依赖/改同文件/共享 schema→串行)。
+6. 接口文档:检查 ${specsDir}/api-contracts.md。workflow 沙箱无法交互询问用户 —— 若涉及新增接口而文档缺失,hasApiContracts=false 并在 blockers 写「[external] spec-XXX 涉及新增接口但 api-contracts.md 缺失,需人工补充接口定义」(每个缺口一条)。不要擅自臆造接口。
+7. 埋点文档:检查 ${specsDir}/tracking-events.md。若涉及新增埋点而文档缺失,hasTrackingEvents=false 并在 blockers 写「[external] spec-XXX 涉及新增埋点但 tracking-events.md 缺失,需人工补充埋点定义」(每个缺口一条)。不要擅自臆造埋点编码。
+8. 未确认假设冒泡:confirmed=false 的假设,每条在 blockers 写「[assumption] <id> <歧义点>,默认按 <默认假设>,请在 overview.md「假设清单」确认([ ]→[x])或修正假设后重跑」。
+9. lessons-learned.md:双路径处理 —— ${lessonsLocalPath}(主版本,本地私有,Source of Truth)由 Bootstrap 阶段创建并维护;${specsDir}/lessons-learned.md(公开快照,团队可见,默认同步主版本内容,由用户后续手动编辑决定哪些可发布)若不存在则创建(顶部 "# 项目踩坑与教训(公开快照,主版本在 .lyyflow-local/)" + 累计教训 0 条)。
 
-只做需求拆分,不写技术方案、不写代码。返回 {title, source, ends, specs, groups, hasApiContracts, hasTrackingEvents, blockers, overviewExists}。`,
+只做需求拆分,不写技术方案、不写代码。返回 {title, source, ends, specs, groups, hasApiContracts, hasTrackingEvents, assumptions, blockers, overviewExists}。`,
     { label: 'analyze:prd', phase: 'PRD', schema: PRD_SCHEMA },
   );
 
@@ -1004,8 +1061,9 @@ async function runPRD() {
 需求:${analysis.title} | 来源:${analysis.source} | 涉及端:${(analysis.ends || []).join(', ') || '(未识别)'}
 ${INCREMENTAL}
 
-overview.md 必须含:基本信息(标题/来源/端/创建时间 placeholder)、项目环境表(端|路径|CLAUDE-RULE.md 状态)、接口文档状态、埋点文档状态(已提供/无新增埋点/待填写)、文档来源、备注、spec 列表表(编号|名称|涉及端|依赖|状态|完成标记 [ ])、依赖关系图、执行计划(并行组表)、状态看板、当前进度、Blockers 表(类型:task/review/p0-unfixed/external)、教训沉淀计数(指向 lessons-learned.md)。
+overview.md 必须含:基本信息(标题/来源/端/创建时间 placeholder)、项目环境表(端|路径|CLAUDE-RULE.md 状态)、**假设清单**(编号 A-NNN|歧义点|默认假设|影响 spec|确认 [ ];已确认的标 [x])、接口文档状态、埋点文档状态(已提供/无新增埋点/待填写)、文档来源、备注、spec 列表表(编号|名称|涉及端|依赖|状态|完成标记 [ ])、依赖关系图、执行计划(并行组表)、状态看板、当前进度、Blockers 表(类型:task/review/p0-unfixed/external/assumption)、教训沉淀计数(指向 lessons-learned.md)。
 spec 列表用 ${(analysis.specs || []).map((s) => `${s.id}|${s.name}|${(s.ends || []).join('/')}|${(s.deps || []).join(',') || '无'}|待方案|[ ]`).join(' ; ')} 填。
+假设清单用 ${((analysis.assumptions || []).map((a) => `${a.id}|${a.question}|${a.assumption}|${a.impact}|${a.confirmed ? '[x]' : '[ ]'}`).join(' ; ')) || '(无假设)'} 填;断点续跑时已有条目(含已标 [x])保持原样,只追加新条目。
 断点续跑:已标 [x] 的保持原样不动。
 用 Read 确认现状后 Write/Edit。返回 {path, action, note}。`,
         { label: 'write:overview', phase: 'PRD', schema: WRITE_SCHEMA },
@@ -1031,7 +1089,8 @@ ${INCREMENTAL}
 
 先从 ${specsDir}/overview.md 的「项目环境」表查该端仓库路径;查不到就用 Glob/Grep 在 ${projectDir} 下找该端的项目根。
 到该端项目根后:若 CLAUDE-RULE.md 不存在 → 新建(action=created);已存在且完整 → 通读后 action=skipped;缺章节 → 只追加 action=appended。
-内容覆盖:项目结构、技术栈与版本、目录与命名约定、公共组件/工具、接口请求方式、状态管理、规范/约束,末尾同时引用 @${lessonsLocalPath}(主路径,本地教训,优先读)与 @${specsDir}/lessons-learned.md(公开快照,兜底),实现自学习闭环。
+**第一章节必须是「## 项目章程」**(项目不可违反原则,后续 Specs 方案对照、Review 违反即 P0):若该端 CLAUDE-RULE.md 已有章程段则不动;没有则生成模板 —— ≤10 条编号原则,含按项目技术栈推断的常见默认条目(如「API 变更必须向后兼容,不破坏既有调用方」「禁止移除/改名既有埋点」「禁止引入新的全局可变状态」),每条一句话可核验,末尾标注「⚠️ 以上为自动生成的默认章程,请项目维护者审阅修订」。
+后续章节:项目结构、技术栈与版本、目录与命名约定、公共组件/工具、接口请求方式、状态管理、规范/约束,末尾同时引用 @${lessonsLocalPath}(主路径,本地教训,优先读)与 @${specsDir}/lessons-learned.md(公开快照,兜底),实现自学习闭环。
 用 Read 确认现状后 Write/Edit。返回 {path, action, note}。`,
         { label: `rule:${end}`, phase: 'PRD', schema: WRITE_SCHEMA },
       ),
@@ -1042,8 +1101,9 @@ ${INCREMENTAL}
   const created = prdWrites.filter((w) => w.action === 'created').map((w) => w.path);
   const appended = prdWrites.filter((w) => w.action === 'appended').map((w) => w.path);
   const skipped = prdWrites.filter((w) => w.action === 'skipped').map((w) => w.path);
+  const unconfirmedAssumptions = (analysis.assumptions || []).filter((a) => !a.confirmed);
   log(
-    `【PRD】完成 — ✅新建 ${created.length} | ➕追加 ${appended.length} | ⚠️跳过 ${skipped.length};拆出 ${(analysis.specs || []).length} 个 spec;${(analysis.blockers || []).length ? `冒泡 ${(analysis.blockers || []).length} 个缺口` : '无缺口'}`,
+    `【PRD】完成 — ✅新建 ${created.length} | ➕追加 ${appended.length} | ⚠️跳过 ${skipped.length};拆出 ${(analysis.specs || []).length} 个 spec;假设清单 ${((analysis.assumptions || []).length)} 条(未确认 ${unconfirmedAssumptions.length} 条已冒泡);${(analysis.blockers || []).length ? `冒泡 ${(analysis.blockers || []).length} 个缺口` : '无缺口'}`,
   );
 
   return {
@@ -1054,6 +1114,7 @@ ${INCREMENTAL}
     groups: analysis.groups || [],
     hasApiContracts: analysis.hasApiContracts,
     hasTrackingEvents: analysis.hasTrackingEvents,
+    assumptions: (analysis.assumptions || []).map((a) => ({ id: a.id, question: a.question, assumption: a.assumption, impact: a.impact, confirmed: a.confirmed })),
     blockers: analysis.blockers || [],
     writes: prdWrites,
   };

@@ -59,9 +59,10 @@ npm install -g @openai/codex        # 安装 Codex CLI
 `$ARGUMENTS` 指定要审核的 spec（如 `spec-001`）。若为空，列出所有「待 review」/「待修复」spec 让用户选择。
 
 ## 准备
-1. 读取目标 spec 的【详细需求】【验收标准】【技术方案】【实现记录】，以及 `specs/overview.md`。
+1. 读取目标 spec 的【详细需求】【验收标准】【技术方案】【实现记录】，以及 `specs/overview.md`（含假设清单——未确认假设按默认假设核对实现）。
 2. 读取 **`.lyyflow-local/lessons-learned.md`（主路径，本地教训,优先读）+ `specs/lessons-learned.md`（公开快照，兜底）**，评审时核对改动有没有重蹈这些坑。
-3. 定位本次改动范围：`git diff`（未提交改动）或 `git diff <base>..HEAD`（相对基线分支）。多端项目**分别在各自仓库**内审查。
+3. 读取本 spec 涉及的各端 `CLAUDE-RULE.md` 顶部「## 项目章程」——**逐条对照改动，违反章程 = P0**（详见下方 P0 分级）。缺章程段的端视为无章程约束，不臆造条款。
+4. 定位本次改动范围：`git diff`（未提交改动）或 `git diff <base>..HEAD`（相对基线分支）。多端项目**分别在各自仓库**内审查。
 
 ## 前置条件（可选）：Jev 启用 Tier C
 
@@ -173,6 +174,7 @@ curl -s https://api.typesafe.ai/v1/systemone \
 > 借鉴自 `yd-ai-wf.js` 的 P0 当场修复机制。
 
 **P0（Critical）**：不修就不能交的问题，必须当场修复：
+- **违反项目章程**（各端 CLAUDE-RULE.md「## 项目章程」任意一条，无论 tier 都必须人工核对——Tier C 的 Jev 结构化校验不覆盖章程）
 - 功能缺失或完全不可用
 - 安全漏洞（鉴权绕过、SQL 注入、XSS 等）
 - 数据丢失或损坏风险
@@ -328,6 +330,7 @@ Tier C 通过的 spec 在 `specs/overview.md` 的 spec 列表里加标记 `tier-
 4. **工程质量**：复用组件/工具、命名规范、无重复、符合项目模式。
 5. **风险**：回归、兼容性、性能、安全（鉴权/校验/越权）。
 6. **埋点完整性**：是否按方案实现了所有埋点事件，参数（key/pageId/触发时机）是否正确，守卫判断（if (!qt) return）是否到位，多端埋点是否一致。
+7. **章程符合性**：逐条对照各端「## 项目章程」，违反任意一条 = P0（写进 p0Issues + 审核结论「章程违反」段）。
 
 然后：
 - 在 spec 文件追加 `## 审核结论`（见下模板）。
@@ -344,6 +347,7 @@ Tier C 通过的 spec 在 `specs/overview.md` 的 spec 列表里加标记 `tier-
 - tier: <core|standard>（tier-source: <manual|auto-jev>）
 - 审查方：OpenAI Codex（/codex:review | /codex:adversarial-review）+ 会话模型交叉核对
 - 结论：通过 / 有条件通过 / 不通过
+- 章程违反（Constitution）：无 / [章程第 N 条] [文件:行] 违反点 → 修复方式
 - P0 问题（已当场修复）：
   1. [文件:行] 问题描述 → 修复方案
 - P0 问题（未能修复）：
@@ -361,8 +365,9 @@ Tier C 通过的 spec 在 `specs/overview.md` 的 spec 列表里加标记 `tier-
 ```
 ## 审核结论
 - tier: trivial（tier-source: <manual|auto-jev>）
-- 审查方：TypeSafe Jev（System One: noul × 3 + score × 1）+ 会话模型交叉核对
+- 审查方：TypeSafe Jev（System One: noul × 3 + score × 1）+ 会话模型交叉核对（含章程人工核对）
 - 结论：通过 / 不通过
+- 章程违反（Constitution，会话模型人工核对，Jev 不覆盖）：无 / [章程第 N 条] [文件:行] 违反点
 - Jev 检查结果：
   | 文件 | undeclared_var_ref | obvious_typo | contract_drift | file_clarity |
   |------|--------------------|--------------|-----------------|--------------|
@@ -457,6 +462,8 @@ Tier C 通过的 spec 在 `specs/overview.md` 的 spec 列表里加标记 `tier-
 **已修复的 P0 不冒泡**：一个 P0 如果已当场修复成功，不再写入 Blockers 章节。
 
 ## 注意
+- **违反项目章程 = P0**：各端 CLAUDE-RULE.md「## 项目章程」逐条对照，无论 tier；章程违反写进 p0Issues 当场修复。
+- **未确认假设按默认假设核对**：overview.md 假设清单中未确认（`[ ]`）的条目，实现应与其默认假设一致，偏离则按需求偏差处理。
 - `/codex:review` 和 `/codex:adversarial-review` 只读不改；`/codex:rescue` 有写入权限，谨慎使用。修复优先走 `/lyyflow:ai`。
 - 多端改动：**每端各自**进入对应仓库分别跑 `/codex:review`；涉及接口契约时确认所有调用方同步更新。
 - 聚焦「明显且高价值」的问题，避免风格之争。

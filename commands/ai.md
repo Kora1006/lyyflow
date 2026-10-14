@@ -63,7 +63,7 @@ argument-hint: <spec 编号或名称> [--fix-p0 "<P0问题描述>"]
 - **`.lyyflow-local/lessons-learned.md`（主路径，本地教训,务必遵守）+ `specs/lessons-learned.md`（公开快照，兜底）**—— 主版本是 Source of Truth
 - `specs/api-contracts.md`（如有接口契约）
 - `specs/tracking-events.md`（如有埋点定义）
-- 项目根目录的 `CLAUDE-RULE.md`（项目规范，末尾会引用 `.lyyflow-local/lessons-learned.md`）
+- 项目根目录的 `CLAUDE-RULE.md`（项目规范，末尾会引用 `.lyyflow-local/lessons-learned.md`），**顶部「## 项目章程」逐条遵守——review 阶段违反章程 = P0**
 
 ⚠️ **本地知识边界安全检查**（必跑）：
 - 执行 `git ls-files .lyyflow-local/` —— 若有结果，说明本地教训已泄露，立即停止实现，提示用户执行 `git rm -r --cached .lyyflow-local/` 后再继续
@@ -189,6 +189,7 @@ argument-hint: <spec 编号或名称> [--fix-p0 "<P0问题描述>"]
 
 ## 注意
 - **不要超出技术方案范围**去重构无关代码。
+- **不得违反项目章程**：实现过程发现技术方案/章程冲突（方案阶段漏检），停止并按「发现方案不可行」处理，不要硬写违反章程的代码。
 - 遇到方案与现实冲突（接口不存在、结构不符、依赖缺失等），**停下来与用户确认**，更新 spec 方案后再继续，而不是擅自大改。
 - 改动要可被 review：保持原子、可追踪。
 - **遇到阻塞立即反馈**，不要强行推进导致返工。

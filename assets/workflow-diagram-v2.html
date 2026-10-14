@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html,body{margin:0;padding:0;background:#fff;}
+</style>
+</head>
+<body>
+<svg id="wf" xmlns="http://www.w3.org/2000/svg" width="1560" height="1770" viewBox="0 0 1560 1770" font-family="'Microsoft YaHei','PingFang SC',sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#f59e0b"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1560" height="1770" fill="#ffffff"/>
+
+  <!-- 标题 -->
+  <text x="780" y="62" text-anchor="middle" font-size="34" font-weight="bold" fill="#0f172a">lyyflow 多端全链路工作流</text>
+  <text x="780" y="98" text-anchor="middle" font-size="17" fill="#64748b">PRD 拆分 → Specs 方案 → AI 实现 → Review 审核 → Archive 归档　｜　v2 新增：项目章程门禁（Constitution）+ 假设清单前置澄清</text>
+
+  <!-- ═══════════ 主列 ═══════════ -->
+  <!-- 0 Bootstrap -->
+  <rect x="80" y="140" width="780" height="96" rx="10" fill="#f6f9fb" stroke="#94a3b8" stroke-dasharray="6 4" stroke-width="1.5"/>
+  <text x="104" y="172" font-size="18" font-weight="bold" fill="#334155">0. Bootstrap — 本地知识边界（链路启动时）</text>
+  <text x="104" y="198" font-size="14.5" fill="#475569">建立 .lyyflow-local/：写 .git/info/exclude + pre-commit hook 拦截 git add -f + git ls-files 泄露检查</text>
+  <text x="104" y="220" font-size="14.5" fill="#475569">本地教训 / 笔记 / 密钥私有：不入 git 远程、不进归档</text>
+
+  <line x1="470" y1="236" x2="470" y2="264" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- 1 PRD -->
+  <rect x="80" y="268" width="780" height="290" rx="12" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="80" y="268" width="780" height="44" rx="12" fill="#dbeafe"/>
+  <rect x="80" y="290" width="780" height="22" fill="#dbeafe"/>
+  <text x="104" y="298" font-size="20" font-weight="bold" fill="#1e40af">① /lyyflow:prd　需求拆分</text>
+  <text x="104" y="340" font-size="15" fill="#1e293b">读取需求来源（文件 / 禅道·URL / PDF / 文本）→ 拆成可独立验收的功能点 spec</text>
+  <rect x="104" y="356" width="52" height="22" rx="5" fill="#f59e0b"/>
+  <text x="130" y="372" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">NEW</text>
+  <text x="168" y="372" font-size="15" fill="#1e293b">假设清单：列出全部歧义点 + 默认假设，一次性批量确认（[ ]→[x]）</text>
+  <text x="104" y="404" font-size="15" fill="#1e293b">接口 / 埋点文档缺失 → [external] 冒泡，不臆造接口与埋点编码</text>
+  <text x="104" y="436" font-size="15" fill="#1e293b">产物：specs/overview.md（状态看板 + 假设清单 + Blockers 表）+ spec-NNN-*.md</text>
+  <rect x="104" y="452" width="52" height="22" rx="5" fill="#f59e0b"/>
+  <text x="130" y="468" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">NEW</text>
+  <text x="168" y="468" font-size="15" fill="#1e293b">每端 CLAUDE-RULE.md：第一章节 =「## 项目章程」≤10 条不可违反原则</text>
+  <text x="104" y="500" font-size="15" fill="#1e293b">workflow 无人值守：未确认假设以 [assumption] 冒泡</text>
+  <text x="104" y="532" font-size="14" fill="#64748b">（需求来源缺失时先索要，不臆造；overview.md 已存在则增量模式续跑）</text>
+
+  <line x1="470" y1="558" x2="470" y2="586" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="486" y="578" font-size="13.5" fill="#64748b">状态：待方案</text>
+
+  <!-- 2 Specs -->
+  <rect x="80" y="590" width="780" height="210" rx="12" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+  <rect x="80" y="590" width="780" height="44" rx="12" fill="#dcfce7"/>
+  <rect x="80" y="612" width="780" height="22" fill="#dcfce7"/>
+  <text x="104" y="620" font-size="20" font-weight="bold" fill="#166534">② /lyyflow:specs　技术方案</text>
+  <rect x="104" y="652" width="52" height="22" rx="5" fill="#f59e0b"/>
+  <text x="130" y="668" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">NEW</text>
+  <text x="168" y="668" font-size="15" fill="#1e293b">章程对照：逐条对照「项目章程」；可规避→调整方案；无法规避→需求待确认</text>
+  <rect x="104" y="684" width="52" height="22" rx="5" fill="#f59e0b"/>
+  <text x="130" y="700" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">NEW</text>
+  <text x="168" y="700" font-size="15" fill="#1e293b">假设核对：已确认按事实；未确认按默认假设出方案 + 标注「A-NN 未确认」</text>
+  <text x="104" y="732" font-size="15" fill="#1e293b">Glob/Grep 定位代码 → 改动点清单（文件 / 端 / 改动类型）</text>
+  <text x="104" y="764" font-size="15" fill="#1e293b">写「## 技术方案」：方案 + 接口契约 + 埋点方案 + 章程对照结论 + 审核策略(可选)</text>
+
+  <line x1="470" y1="800" x2="470" y2="828" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="486" y="820" font-size="13.5" fill="#64748b">状态：待实现</text>
+
+  <!-- 3 AI -->
+  <rect x="80" y="832" width="780" height="190" rx="12" fill="#fffbeb" stroke="#eab308" stroke-width="2"/>
+  <rect x="80" y="832" width="780" height="44" rx="12" fill="#fef3c7"/>
+  <rect x="80" y="854" width="780" height="22" fill="#fef3c7"/>
+  <text x="104" y="862" font-size="20" font-weight="bold" fill="#92400e">③ /lyyflow:ai　编码实现</text>
+  <text x="104" y="904" font-size="15" fill="#1e293b">分支二次确认：写码前后各查 git branch，主干分支强警告并停止</text>
+  <text x="104" y="936" font-size="15" fill="#1e293b">严格按技术方案实现（不越界重构）；多端按端实现、各自自检</text>
+  <text x="104" y="968" font-size="15" fill="#1e293b">自检：lint / typecheck / test + 验收标准逐条核对 + 埋点核对</text>
+  <text x="104" y="1000" font-size="15" fill="#1e293b">踩坑教训双写：本地主版本 + specs 公开快照（不得违反项目章程）</text>
+
+  <line x1="470" y1="1022" x2="470" y2="1050" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="486" y="1042" font-size="13.5" fill="#64748b">状态：待 review</text>
+
+  <!-- 4 Review -->
+  <rect x="80" y="1054" width="780" height="430" rx="12" fill="#fef2f2" stroke="#ef4444" stroke-width="2"/>
+  <rect x="80" y="1054" width="780" height="44" rx="12" fill="#fee2e2"/>
+  <rect x="80" y="1076" width="780" height="22" fill="#fee2e2"/>
+  <text x="104" y="1084" font-size="20" font-weight="bold" fill="#991b1b">④ /lyyflow:review　代码审核（3 层路由 + 章程门禁）</text>
+
+  <rect x="110" y="1112" width="720" height="44" rx="8" fill="#ffffff" stroke="#ef4444" stroke-dasharray="5 3"/>
+  <text x="470" y="1139" text-anchor="middle" font-size="14.5" fill="#7f1d1d">Step 0 路由：spec「## 审核策略」手动指定　&gt;　Jev Choice 自动判定（key 未配置 → core）</text>
+
+  <line x1="470" y1="1156" x2="226" y2="1174" stroke="#475569" stroke-width="1.8" marker-end="url(#arr)"/>
+  <line x1="470" y1="1156" x2="480" y2="1174" stroke="#475569" stroke-width="1.8" marker-end="url(#arr)"/>
+  <line x1="470" y1="1156" x2="734" y2="1174" stroke="#475569" stroke-width="1.8" marker-end="url(#arr)"/>
+
+  <rect x="110" y="1178" width="232" height="86" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="226" y="1206" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#991b1b">Tier A · core</text>
+  <text x="226" y="1230" text-anchor="middle" font-size="13.5" fill="#7f1d1d">Codex review</text>
+  <text x="226" y="1250" text-anchor="middle" font-size="13.5" fill="#7f1d1d">+ adversarial 对抗审查</text>
+
+  <rect x="364" y="1178" width="232" height="86" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="480" y="1206" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#1e40af">Tier B · standard</text>
+  <text x="480" y="1230" text-anchor="middle" font-size="13.5" fill="#1e3a8a">Codex review</text>
+  <text x="480" y="1250" text-anchor="middle" font-size="13.5" fill="#1e3a8a">（跳过对抗审查）</text>
+
+  <rect x="618" y="1178" width="232" height="86" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="734" y="1206" text-anchor="middle" font-size="15.5" font-weight="bold" fill="#166534">Tier C · trivial</text>
+  <text x="734" y="1230" text-anchor="middle" font-size="13.5" fill="#14532d">Jev 轻校验（Noul×3 + Score）</text>
+  <text x="734" y="1250" text-anchor="middle" font-size="13.5" fill="#14532d">不耗 Codex 配额</text>
+
+  <line x1="616" y1="1240" x2="600" y2="1240" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#arrO)"/>
+  <text x="608" y="1228" text-anchor="middle" font-size="12" fill="#b45309">触发升级条件 → 自动转 B</text>
+
+  <rect x="110" y="1286" width="720" height="46" rx="8" fill="#fff7ed" stroke="#f59e0b" stroke-width="2"/>
+  <rect x="128" y="1298" width="52" height="22" rx="5" fill="#f59e0b"/>
+  <text x="154" y="1314" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">NEW</text>
+  <text x="192" y="1315" font-size="15" font-weight="bold" fill="#9a3412">项目章程核对（所有 tier；Tier C 由会话模型核对，Jev 不覆盖）：违反章程 = P0</text>
+
+  <rect x="110" y="1352" width="720" height="46" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="470" y="1381" text-anchor="middle" font-size="14.5" fill="#334155">P0（含章程违反）→ 修复 agent 只修 P0（评审/修复职责分离）→ 复跑 review 验证</text>
+  <path d="M 832 1375 C 854 1375 854 1310 834 1309" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrO)"/>
+  <text x="856" y="1348" font-size="12" fill="#b45309" writing-mode="tb">复跑</text>
+
+  <rect x="110" y="1418" width="720" height="40" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="470" y="1444" text-anchor="middle" font-size="14.5" fill="#166534">通过 → overview.md 标 [x]、状态→已完成　｜　非 P0 / 修不掉的 P0 → Blocker 冒泡</text>
+
+  <line x1="470" y1="1484" x2="470" y2="1512" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="486" y="1504" font-size="13.5" fill="#64748b">全部 spec 已完成 + 审核通过</text>
+
+  <!-- 5 Archive -->
+  <rect x="80" y="1516" width="780" height="150" rx="12" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="2"/>
+  <rect x="80" y="1516" width="780" height="44" rx="12" fill="#ede9fe"/>
+  <rect x="80" y="1538" width="780" height="22" fill="#ede9fe"/>
+  <text x="104" y="1546" font-size="20" font-weight="bold" fill="#5b21b6">⑤ /lyyflow:archive　归档</text>
+  <text x="104" y="1588" font-size="15" fill="#1e293b">spec 文件中文重命名（spec-编号-中文短名.md），更新 overview 引用</text>
+  <text x="104" y="1620" font-size="15" fill="#1e293b">打包 prd/ + specs/ + archive-meta.md → args.archiveRoot（默认 ~/lyyflow-archives）</text>
+  <text x="104" y="1648" font-size="14.5" fill="#7c2d12">⚠ 严格排除 .lyyflow-local/（本地教训永不进归档）</text>
+
+  <!-- ═══════════ 右侧机制面板 ═══════════ -->
+  <!-- P1 状态机 -->
+  <rect x="920" y="268" width="560" height="170" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="944" y="300" font-size="17" font-weight="bold" fill="#334155">状态机（断点续跑依据）</text>
+  <text x="944" y="330" font-size="13.5" fill="#475569">主线：待方案 → 待实现 → 待 review → 已完成</text>
+  <text x="944" y="356" font-size="13.5" fill="#475569">重跑跳过已标 [x] 的 spec（overview.md 复选框）</text>
+  <text x="944" y="382" font-size="13.5" fill="#475569">异常分支：方案待修正 / 需求待确认 / 待修复 /</text>
+  <text x="944" y="408" font-size="13.5" fill="#475569">待联调 / 阻塞中　（状态机切换即断点标记）</text>
+
+  <!-- P2 假设清单 NEW -->
+  <rect x="920" y="468" width="560" height="190" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <rect x="944" y="486" width="52" height="22" rx="5" fill="#f59e0b"/>
+  <text x="970" y="502" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">NEW</text>
+  <text x="1008" y="502" font-size="17" font-weight="bold" fill="#92400e">假设清单（前置澄清）</text>
+  <text x="944" y="532" font-size="13.5" fill="#475569">PRD 拆分时强制列出需求歧义点，每条 =</text>
+  <text x="944" y="558" font-size="13.5" fill="#334155">A-NNN ｜ 歧义点 ｜ 默认假设 ｜ 影响 spec ｜ 确认 [ ]</text>
+  <text x="944" y="584" font-size="13.5" fill="#475569">交互模式：一次性批量确认，回复「全部确认」即 [x]</text>
+  <text x="944" y="610" font-size="13.5" fill="#475569">workflow 模式：未确认 → [assumption] 前缀冒泡</text>
+  <text x="944" y="636" font-size="13.5" fill="#475569">消除：overview.md 假设清单标 [x] 后重跑即消</text>
+
+  <!-- P3 项目章程 NEW -->
+  <rect x="920" y="688" width="560" height="190" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <rect x="944" y="706" width="52" height="22" rx="5" fill="#f59e0b"/>
+  <text x="970" y="722" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">NEW</text>
+  <text x="1008" y="722" font-size="17" font-weight="bold" fill="#92400e">项目章程（Constitution 门禁）</text>
+  <text x="944" y="752" font-size="13.5" fill="#475569">位置：每端 CLAUDE-RULE.md 第一章节，≤10 条可核验原则</text>
+  <text x="944" y="778" font-size="13.5" fill="#475569">Specs：方案出口逐条对照，无法规避 → 人工裁决</text>
+  <text x="944" y="804" font-size="13.5" fill="#475569">Review：违反任意一条 = P0，当场修复 + 复跑验证</text>
+  <text x="944" y="830" font-size="13.5" fill="#475569">Tier C 的 Jev 校验不覆盖章程，由会话模型核对</text>
+  <text x="944" y="856" font-size="13.5" fill="#475569">workflow 返回 constitutionViolations 统计留痕</text>
+
+  <!-- P4 Blocker 冒泡 -->
+  <rect x="920" y="908" width="560" height="150" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="944" y="940" font-size="17" font-weight="bold" fill="#334155">Blocker 分类冒泡（无人值守）</text>
+  <text x="944" y="970" font-size="13.5" fill="#475569">task ｜ branch ｜ review ｜ p0-unfixed ｜ external</text>
+  <text x="944" y="996" font-size="13.5" fill="#92400e">assumption（NEW：未确认假设）</text>
+  <text x="944" y="1022" font-size="13.5" fill="#475569">已当场修复的 P0 不冒泡；问题不等人，分类冒泡到</text>
+  <text x="944" y="1044" font-size="13.5" fill="#475569">overview.md Blockers 表 + workflow 返回值</text>
+
+  <!-- P5 自学习闭环 -->
+  <rect x="920" y="1088" width="560" height="140" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="944" y="1120" font-size="17" font-weight="bold" fill="#334155">自学习闭环（教训双写）</text>
+  <text x="944" y="1150" font-size="13.5" fill="#475569">.lyyflow-local/lessons-learned.md（主版本，本地私有）</text>
+  <text x="944" y="1176" font-size="13.5" fill="#475569">specs/lessons-learned.md（公开快照，用户定发布范围）</text>
+  <text x="944" y="1202" font-size="13.5" fill="#475569">各 agent 开工前自动加载，避免重蹈覆辙</text>
+
+  <!-- P6 编排 -->
+  <rect x="920" y="1258" width="560" height="120" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="944" y="1290" font-size="17" font-weight="bold" fill="#334155">Workflow 编排（workflows/lyyflow.js）</text>
+  <text x="944" y="1320" font-size="13.5" fill="#475569">组间串行保依赖、组内并行；每 spec 一完成就触发自己的</text>
+  <text x="944" y="1346" font-size="13.5" fill="#475569">review（pipeline）；所有 agent 返回 JSON Schema 强约束</text>
+
+  <!-- P7 路由价值 -->
+  <rect x="920" y="1408" width="560" height="120" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="944" y="1440" font-size="17" font-weight="bold" fill="#334155">3 层路由价值（省 Codex 配额）</text>
+  <text x="944" y="1470" font-size="13.5" fill="#475569">trivial 走 Jev 不耗 Codex 配额；触发条件自动升级 standard</text>
+  <text x="944" y="1496" font-size="13.5" fill="#475569">升级 / 降级均留审计标记（tier-escalated / tier-fallback）</text>
+
+  <!-- 图例 -->
+  <rect x="944" y="1576" width="52" height="22" rx="5" fill="#f59e0b"/>
+  <text x="970" y="1592" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">NEW</text>
+  <text x="1008" y="1592" font-size="14" fill="#475569">= 本次新增机制（项目章程门禁 / 假设清单前置澄清，借鉴 GitHub Spec Kit）</text>
+  <text x="944" y="1630" font-size="13" fill="#94a3b8">lyyflow v2 · 2026-10 · 命令：/lyyflow:prd|specs|ai|review|archive · 编排：Workflow({name:'lyyflow'})</text>
+</svg>
+</body>
+</html>
