@@ -2,7 +2,7 @@
 
 **多端全链路开发工作流** —— 一条链路打通「需求拆分 → 技术方案 → 编码实现 → 代码审核 → 归档」，带本地知识沉淀（踩坑教训自学习闭环）与断点续跑。
 
-![workflow](assets/workflow-diagram.svg)
+![workflow](assets/workflow-diagram-v2.png)
 
 ## 它解决什么问题
 
